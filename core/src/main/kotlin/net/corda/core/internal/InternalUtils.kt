@@ -4,6 +4,9 @@ package net.corda.core.internal
 
 import net.corda.core.DeleteForDJVM
 import net.corda.core.KeepForDJVM
+import net.corda.core.contracts.ContractState
+import net.corda.core.contracts.LinearState
+import net.corda.core.contracts.TransactionState
 import net.corda.core.crypto.*
 import net.corda.core.serialization.*
 import net.corda.core.utilities.OpaqueBytes

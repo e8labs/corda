@@ -11,6 +11,7 @@ import net.corda.core.crypto.SignableData
 import net.corda.core.crypto.SignatureMetadata
 import net.corda.core.identity.Party
 import net.corda.core.internal.FlowStateMachine
+import net.corda.core.internal.StatePointerSearch
 import net.corda.core.internal.ensureMinimumPlatformVersion
 import net.corda.core.node.NetworkParameters
 import net.corda.core.node.ServiceHub
@@ -208,6 +209,47 @@ open class TransactionBuilder @JvmOverloads constructor(
     }
 
     private fun checkReferencesUseSameNotary() = referencesWithTransactionState.map { it.notary }.toSet().size == 1
+
+    /**
+     * If any inputs or outputs added to the [TransactionBuilder] contain [StatePointer]s, then this method can be
+     * optionally called to resolve those [StatePointer]s to [StateAndRef]s. The [StateAndRef]s are then added as
+     * reference states to the transaction. The effect is that the referenced data is carried along with the
+     * transaction. This may or may not be appropriate in all circumstances, which is why calling this method is
+     * optional.
+     *
+     * If this method is called outside the context of a flow, a [ServiceHub] instance must be passed to this method
+     * for it to be able to resolve [StatePointer]s. Usually for a unit test, this will be an instance of mock services.
+     *
+     * @param recursive also resolve [StatePointer]s inside resolved reference states.
+     * @param serviceHub a [ServiceHub] instance needed for performing vault queries.
+     *
+     * @throws IllegalStateException if no [ServiceHub] is provided and no flow context is available.
+     */
+    fun resolveStatePointers(serviceHub: ServiceHub? = (Strand.currentStrand() as? FlowStateMachine<*>)?.serviceHub, recursive: Boolean = true) {
+        if (serviceHub == null) {
+            throw IllegalStateException("You must pass in a ServiceHub reference to resolve state pointers outside " +
+                    "flows. If you are writing a unit test then pass in a MockServices instance.")
+        } else {
+            val transactionStates = outputStates() + inputsWithTransactionState
+            val contractStates = transactionStates.map { it.data }
+            // Find pointers in all inputs and outputs.
+            val inputAndOutputPointers = contractStates.flatMap { state -> StatePointerSearch(state).search() }
+            // Queue up the pointers to resolve.
+            val statePointerQueue = ArrayDeque<StatePointer<*>>().apply { addAll(inputAndOutputPointers) }
+            // Recursively resolve all pointers.
+            while (statePointerQueue.isNotEmpty()) {
+                val nextStatePointer = statePointerQueue.pop()
+                val resolvedStateAndRef = nextStatePointer.resolve(serviceHub)
+                addReferenceState(resolvedStateAndRef.referenced())
+                // Check to see if THIS reference state has any pointers and add them too.
+                if (recursive) {
+                    StatePointerSearch(resolvedStateAndRef.state.data).search().forEach {
+                        statePointerQueue.push(it)
+                    }
+                }
+            }
+        }
+    }
 
     /**
      * Adds a reference input [StateRef] to the transaction.
