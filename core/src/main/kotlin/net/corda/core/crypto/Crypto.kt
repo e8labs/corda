@@ -230,7 +230,7 @@ object Crypto {
                 ?: throw IllegalArgumentException("Unrecognised algorithm: ${algorithm.algorithm.id}")
     }
 
-    /** Find [SignatureScheme] by schemeNumberID. */
+    /** Find [SignatureScheme] by platform specific schemeNumberID. */
     @JvmStatic
     fun findSignatureScheme(schemeNumberID: Int): SignatureScheme {
         return signatureSchemeNumberIDMap[schemeNumberID]
@@ -473,7 +473,9 @@ object Crypto {
     fun doSign(keyPair: KeyPair, signableData: SignableData): TransactionSignature {
         val sigKey: SignatureScheme = Crypto.findSignatureScheme(keyPair.private)
         val sigMetaData: SignatureScheme = Crypto.findSignatureScheme(signableData.signatureMetadata.schemeNumberID)
-        require(sigKey == sigMetaData || sigMetaData == Crypto.COMPOSITE_KEY) { // Special handling if the advertised SignatureScheme is CompositeKey. TODO fix.
+        // Special handling if the advertised SignatureScheme is CompositeKey.
+        // TODO fix notaries that advertise [CompositeKey] in their signature Metadata.
+        require(sigKey == sigMetaData || sigMetaData == Crypto.COMPOSITE_KEY) {
             "Metadata schemeCodeName: ${sigMetaData.schemeCodeName} is not aligned with the key type: ${sigKey.schemeCodeName}."
         }
         val signatureBytes = doSign(sigKey.schemeCodeName, keyPair.private, signableData.serialize().bytes)
