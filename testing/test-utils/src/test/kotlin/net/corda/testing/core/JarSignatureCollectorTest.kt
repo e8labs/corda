@@ -28,8 +28,6 @@ class JarSignatureCollectorTest {
         private const val ALICE_PASS = "alicepass"
         private const val BOB = "bob"
         private const val BOB_PASS = "bobpass"
-        private const val CHARLIE = "Charlie"
-        private const val CHARLIE_PASS = "charliepass"
 
         @BeforeClass
         @JvmStatic
@@ -130,6 +128,6 @@ class JarSignatureCollectorTest {
         assertFailsWith<SecurityException> { dir.getJarSigners(FILENAME) }
     }
 
-    private fun signAsAlice() = dir.signJar(FILENAME, ALICE, ALICE_PASS)
-    private fun signAsBob() = dir.signJar(FILENAME, BOB, BOB_PASS)
+    private fun signAsAlice() = dir.signJar(FILENAME, ALICE, "storepass", ALICE_PASS)
+    private fun signAsBob() = dir.signJar(FILENAME, BOB, "storepass", BOB_PASS)
 }
