@@ -5,6 +5,7 @@ import net.corda.core.JarSignatureTestUtils.generateKey
 import net.corda.core.JarSignatureTestUtils.getJarSigners
 import net.corda.core.JarSignatureTestUtils.signJar
 import net.corda.core.JarSignatureTestUtils.updateJar
+import net.corda.core.JarSignatureTestUtils.addIndexList
 import net.corda.core.identity.Party
 import net.corda.testing.core.ALICE_NAME
 import net.corda.testing.core.BOB_NAME
@@ -127,6 +128,18 @@ class JarSignatureCollectorTest {
         signAsBob()
         // The JDK doesn't care that BOB has correctly signed the whole thing, it won't let us process the entry with ALICE's bad signature:
         assertFailsWith<SecurityException> { dir.getJarSigners(FILENAME) }
+    }
+
+    @Test
+    fun `one signer jar with META-INF INDEX dot LIST`() {
+        dir.createJar(FILENAME, "_signable1", "_signable2")
+        dir.addIndexList(FILENAME)
+        val key = signAsAlice()
+        assertEquals(listOf(key), dir.getJarSigners(FILENAME))
+
+        (dir / "my-dir").createDirectory()
+        dir.updateJar(FILENAME, "my-dir")
+        assertEquals(listOf(key), dir.getJarSigners(FILENAME)) // Unsigned directory is irrelevant.
     }
 
     private fun signAsAlice() = dir.signJar(FILENAME, ALICE, ALICE_PASS)
